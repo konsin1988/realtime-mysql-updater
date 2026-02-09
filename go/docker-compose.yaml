@@ -1,0 +1,58 @@
+services:
+  # ---------------------------
+  # Dev 
+  # --------------------------
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: konsin1988/rtpc-debezium:1.0.0
+    container_name: rtpc-debezium-test
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app
+      - /app/tmp
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.debezium.rule=PathPrefix(`$BASE_LINK`)"
+      - "traefik.http.routers.debezium.tls=true"
+      - "traefik.http.services.debezium.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.debezium-compress.compress=true"
+      - "traefik.http.middlewares.strip-debezium.stripprefix.prefixes=/debezium"
+      - "traefik.http.routers.debezium.middlewares=strip-debezium@docker"
+    environment:
+      - GO_ENABLED=0
+      - GO111MODULE=on
+        #  - DB_USER=${DB_USER}
+        #  - DB_PASSWORD=${DB_PASSWORD}
+        #  - DB_HOST=${DB_HOST}
+        #  - DB_PORT=${DB_PORT}
+        #  - DB_NAME=${DB_NAME}
+    restart: unless-stopped
+    command: air /app
+    networks:
+      - rtt 
+
+  # -------------------------
+  # Prod
+  # --------------------------
+  prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: konsin1988/rtpc-debezium-test:1.0.0
+    container_name: rtpc-debezium-test 
+    env_file: ../.env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - rtt 
+
+networks:
+  rtt:
+    name: rtt 
+    external: True
+

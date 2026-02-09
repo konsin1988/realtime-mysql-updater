@@ -1,0 +1,62 @@
+---
+services:
+  kafka:
+    image: apache/kafka:3.9.1
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: debezium 
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - ./kafka-data:/var/lib/kafka/data
+      - ./init-topics.sh:/docker-entrypoint-init.d/init-topics.sh
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --list --bootstrap-server kafka:9092 || exit 1"]
+      interval: 10s     
+      timeout: 5s      
+      retries: 10     
+    networks:
+      - rtt
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:latest
+    container_name: redpanda-ui
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - BASE_PATH=${BASE_LINK}
+      - HOSTNAME=test.rtt.digital
+    depends_on:
+      kafka:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redpanda.rule=PathPrefix(`/redpanda`)"
+      - "traefik.http.routers.redpanda.tls=true"
+      - "traefik.http.middlewares.redpanda-compress.compress=true"
+      - "traefik.http.services.redpanda.loadbalancer.server.port=8080"
+        #- "traefik.http.middlewares.strip.stripprefix.prefixes=${BASE_LINK}"
+    networks:
+      - rtt
+
+networks:
+  rtt:
+    name: rtt
+    external: True 
+

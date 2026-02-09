@@ -1,0 +1,6 @@
+root = "/app/"
+tmp_dir = "tmp"
+cmd = "go run ./cmd/server"
+include_ext = ["go"]
+exclude_dir = ["tmp", "vendor"]
+
