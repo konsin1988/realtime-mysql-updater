@@ -6,8 +6,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    image: konsin1988/rtpc-debezium:1.0.0
-    container_name: rtpc-debezium-test
+    image: konsin1988/rtpc-debezium-dev:1.0.0
+    container_name: rtpc-debezium-dev
     env_file: .env
     ports:
       - "8000:8000"
@@ -42,8 +42,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: konsin1988/rtpc-debezium-test:1.0.0
-    container_name: rtpc-debezium-test 
+    image: konsin1988/rtpc-debezium-prod:1.0.0
+    container_name: rtpc-debezium-prod
     env_file: ../.env
     ports:
       - "8000:8000"

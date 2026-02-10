@@ -1,0 +1,77 @@
+# mysql
+server-id=1
+log-bin=mysql-bin
+binlog_format=ROW
+binlog_row_image=FULL
+
+# docker exec -it mysql mysql -u root -p   (only root user)
+CREATE USER 'debezium'@'%' IDENTIFIED BY 'debezium';
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT
+ON *.* TO 'debezium'@'%';
+FLUSH PRIVILEGES;
+
+# debezium
+connect:
+    image: debezium/connect:3.1
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      STATUS_STORAGE_TOPIC: connect_statuses
+
+# kafka connect 
+POST http://connect:8083/connectors
+Content-Type: application/json
+{
+  "name": "rtpc-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "database.hostname": "mysql",
+    "database.port": "3306",
+    "database.user": "debezium",
+    "database.password": "debezium",
+    "database.server.id": "184054",
+    "database.server.name": "dbserverrtpc",
+    "database.include.list": "new_rtpc",
+    "table.include.list": "new_rtpc.DataFormCar",
+    "include.schema.changes": "false",
+    "topic.prefix": "db",
+    "snapshot.mode": "initial"
+  }
+}
+
+# check connector status
+curl http://localhost:8083/connectors/mysql-connector/status
+
+# delete connector
+curl -X DELETE http://localhost:8083/connectors/rtpc-connector
+
+=> Debezium creates Kafka topics like:
+    db.dbserver1.new_rtpc.DataFormCar
+    db.dbserver1.new_rtpc.orders ... and so on.
+
+# go-kafka
+r := kafka.NewReader(kafka.ReaderConfig{
+    Brokers: []string{"kafka:9092"},
+    Topic:   "db.dbserver1.mydb.users",
+    GroupID: "realtime-api",
+})
+
+for {
+    m, err := r.ReadMessage(context.Background())
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // parse Debezium event
+    var evt DebeziumEvent
+    json.Unmarshal(m.Value, &evt)
+
+    // broadcast to clients
+}
+
+
+
