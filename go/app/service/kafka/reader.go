@@ -6,10 +6,19 @@ import (
   "log"
 
   "github.com/segmentio/kafka-go"
+  
+  car "konsin1988/debezium/db/car"
 )
 
-type DebeziumEvent struct {
+type DebeziumMessage struct {
+  Payload   DebeziumEvent   `json:"payload"`
+}
 
+type DebeziumEvent struct {
+  Before    *car.DataFormCar    `json:"before"`
+  After	    *car.DataFormCar    `json:"after"`
+  Op	    string	    `json:"op"`
+  TsMs	    int64	    `json:"ts_ms"`
 }
 
 func StartKafkaReader(brokers []string, topic, groupID string, handleEvent func(DebeziumEvent)){
@@ -26,13 +35,13 @@ func StartKafkaReader(brokers []string, topic, groupID string, handleEvent func(
 	log.Fatal(err)
       }
 
-      var evt DebeziumEvent 
-      if err := json.Unmarshal(m.Value, &evt); err != nil {
-	log.Println("failed to parse event: ", err)
-	continue
+      var msg DebeziumMessage
+      if err := json.Unmarshal(m.Value, &msg); err != nil {
+        log.Println("failed to parse event: ", err)
+        continue
       }
 
-      handleEvent(evt)
+      handleEvent(msg.Payload)
     }
   }()
 }

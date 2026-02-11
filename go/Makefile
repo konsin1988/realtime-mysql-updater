@@ -3,7 +3,7 @@ dev:
 
 re:
 	docker compose down
-	docker image rm konsin1988/rtpc-debezium:1.0.0 
+	docker image rm konsin1988/rtpc-debezium-dev:1.0.0 
 	docker compose up -d --build dev
 
 prod:
