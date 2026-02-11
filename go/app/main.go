@@ -3,29 +3,14 @@ package main
 import (
     "log"
     "net/http"
-    "strings"
     "path/filepath"
 
     "konsin1988/debezium/config"
     health "konsin1988/debezium/db/health"
     kafka "konsin1988/debezium/service/kafka"
+    realtime "konsin1988/debezium/service/realtime"
+    ws "konsin1988/debezium/service/websocket"
 )
-
-func FileServer(mux *http.ServeMux, path string, root http.FileSystem) {
-	if strings.ContainsAny(path, "{}*") {
-		panic("FileServer does not permit URL parameters")
-	}
-
-	fs := http.StripPrefix(path, http.FileServer(root))
-
-	if path != "/" && !strings.HasSuffix(path, "/") {
-		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, path+"/", http.StatusMovedPermanently)
-		})
-		path += "/"
-	}
-	mux.Handle(path, fs)
-}
 
 func main(){
     db, err := config.ConnectDB()
@@ -34,18 +19,23 @@ func main(){
     }
     defer db.Close()
 
+    hub := ws.NewHub()
+    realtimeService := realtime.NewService(hub)
+
     kafka.StartKafkaReader([]string{"kafka:9092"}, 
-			"db.dbserver1.new_rtpc.DataFormCar",
+			"db.new_rtpc.DataFormCar",
 			"rtpc-realtime-api",
-			func(evt kafka.DebeziumEvent) {
-			  log.Println("received event:", evt)
-			}
+			realtimeService.HandleDataFormCarEvent,
+      )
 
     healthRepo := health.NewHealthRepo(db)
     healthHandler := health.NewHealthHandler(healthRepo)
 
     mux := http.NewServeMux()
     mux.HandleFunc("/debezium/api/health", healthHandler.HealthCheck)
+
+    // WebSocket
+    mux.HandleFunc("/debezium/ws", hub.HandleWS)
 
     // API
     //r.Route("/debezium/api", func(r chi.Router) {

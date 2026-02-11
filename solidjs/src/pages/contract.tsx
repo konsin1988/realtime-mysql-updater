@@ -7,6 +7,7 @@ import Spinner from "@/components/Spinner";
 import BackButton from "@/components/BackButton";
 import ExportPdfButton from "@/components/ExportPdfButton";
 import ZoomControl from "@/components/ZoomControl";
+import RealtimeCars from "@/components/RealtimeCars";
 
 import { formatRuDate } from "@/utils/formatRuDate";
 
@@ -68,6 +69,7 @@ export default function Contract() {
                     "transform-origin": "top center",
                 }}
                 class="text-[0.7rem] w-[210mm] h-[297mm] px-[15mm] bg-white shadow-[0_0_10px_rgba(0,0,0,0.2)] origin-top">
+		<RealtimeCars/>
             </div>
         </div>
     </section>
