@@ -1,93 +1,279 @@
-# debezium-kafka-test
+# Real-Time Database Change Propagation System
+
+## Overview
+
+This project introduces a non-intrusive solution for detecting database changes in a legacy platform and propagating them to a modern client application in real time.
+
+The legacy system (React + NodeJS + MySQL) cannot be significantly modified due to limited team capacity and maintenance constraints. Therefore, this solution observes database-level changes and distributes them through an event-driven architecture.
+
+The system ensures that:
+
+- Database changes are detected automatically
+- Backend services are notified without modifying the legacy app
+- Clients receive updates in real time
+- Business logic can verify whether required changes occurred before proceeding
 
 
+## Problem Statement
 
-## Getting started
+The legacy platform:
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- Client: **React**
+- Server: **NodeJS**
+- Database: **MySQL**
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Constraints:
 
-## Add your files
+- No team capacity to refactor legacy code
+- No safe way to deeply integrate new logic into NodeJS backend
+- New features require validation that certain database changes occurred
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+We needed a decoupled and reliable mechanism to:
+
+1. Detect changes in MySQL
+2. Deliver those changes to a new service
+3. Push updates to a SPA client in real time
+4. Allow business workflows to wait for or validate DB mutations
+
+
+## High-Level Architecture
 
 ```
-cd existing_repo
-git remote add origin https://git.rtt.digital/solidjs-go-sidecar-projects/debezium-kafka-test.git
-git branch -M main
-git push -uf origin main
+MySQL
+   │
+   ▼
+Debezium (CDC)
+   │
+   ▼
+Apache Kafka
+   │
+   ▼
+Go Server (Consumer + Business Logic)
+   │
+   ▼
+WebSocket
+   │
+   ▼
+SolidJS Client (SPA)
 ```
 
-## Integrate with your tools
 
-- [ ] [Set up project integrations](https://git.rtt.digital/solidjs-go-sidecar-projects/debezium-kafka-test/-/settings/integrations)
+## Technology Stack
 
-## Collaborate with your team
+### Database Layer
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+- **MySQL** — primary relational database
+- **Debezium** — Change Data Capture (CDC)
+- **Apache Kafka** — event streaming platform
 
-## Test and Deploy
+### Backend
 
-Use the built-in continuous integration in GitLab.
+- **Go** — Kafka consumer + WebSocket server
+- Kafka consumer group for processing DB change events
+- Event filtering and business validation logic
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Frontend
 
-***
+- **SolidJS** (SPA)
+- WebSocket client connection
+- Real-time UI updates based on backend events
 
-# Editing this README
+## How It Works
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### 1. Change Data Capture (CDC)
 
-## Suggestions for a good README
+Debezium monitors MySQL binlogs and captures:
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+- INSERT
+- UPDATE
+- DELETE
 
-## Name
-Choose a self-explaining name for your project.
+Each change is converted into a structured event and published to a Kafka topic.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### 2. Event Streaming (Kafka)
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Kafka acts as a durable event bus:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+- Stores database change events
+- Allows scalable consumption
+- Guarantees ordering per partition
+- Supports replaying events if needed
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### 3. Go Backend Processing
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+The Go service:
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+- Subscribes to relevant Kafka topics
+- Parses Debezium event payloads
+- Filters events by:
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+  - Table
+  - Operation type
+  - Business conditions
+- Maintains internal state if required
+- Sends relevant updates to connected clients via WebSocket
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Additionally, it can:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+- Block or delay certain operations until a required DB change is observed
+- Validate that expected mutations occurred
 
-## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+### 4. Real-Time Client Updates
+
+The SolidJS SPA:
+
+- Establishes a WebSocket connection to the Go server
+- Subscribes to relevant channels/events
+- Reacts to incoming updates
+- Updates UI state in real time
+
+This removes the need for polling.
+
+## Why This Architecture?
+
+### 1. Zero Changes to Legacy Backend
+
+We do not modify the existing NodeJS server.
+
+### 2. Event-Driven Design
+
+Database changes become first-class events.
+
+### 3. Loose Coupling
+
+Each layer is independent:
+
+- Database
+- Event streaming
+- Processing service
+- Client
+
+### 4. Scalability
+
+Kafka + consumer groups allow horizontal scaling.
+
+### 5. Reliability
+
+Kafka guarantees durable storage of events.
+
+## Example Flow
+
+Example: A user updates a record in the legacy system.
+
+1. Legacy NodeJS server updates MySQL.
+2. MySQL writes change to binlog.
+3. Debezium captures change.
+4. Event published to Kafka topic.
+5. Go server consumes event.
+6. Business logic validates the change.
+7. WebSocket sends update to client.
+8. SolidJS updates UI in real time.
+
+
+## Event Structure (Debezium)
+
+Typical message contains:
+
+- `before` (previous state)
+- `after` (new state)
+- `op` (operation type: c/u/d)
+- `ts_ms` (timestamp)
+- metadata (source, table, etc.)
+
+The Go service extracts only relevant fields for business processing.
+
+
+## WebSocket Contract
+
+Example message format sent to client:
+
+```json
+{
+  "type": "ENTITY_UPDATED",
+  "entity": "order",
+  "id": "12345",
+  "payload": {
+    "status": "COMPLETED"
+  }
+}
+```
+
+The client must:
+
+- Handle reconnection
+- Handle idempotent updates
+- Ignore irrelevant events
+
+
+## Deployment Considerations
+
+### Kafka
+
+- Ensure proper topic partitioning
+- Configure retention policies
+- Monitor consumer lag
+
+### Debezium
+
+- Validate binlog configuration
+- Monitor connector health
+- Handle schema evolution carefully
+
+### Go Service
+
+- Implement graceful shutdown
+- Use context cancellation
+- Handle backpressure
+
+### WebSockets
+
+- Implement heartbeat/ping
+- Handle client reconnections
+- Consider horizontal scaling with shared state (e.g., Redis if needed)
+
+
+## Observability
+
+Recommended:
+
+- Kafka lag monitoring
+- Debezium connector metrics
+- Structured logging in Go
+- WebSocket connection metrics
+- Alerting on consumer failures
+
+
+## Known Limitations
+
+- Eventual consistency (not strictly synchronous)
+- Requires proper ordering guarantees per entity
+- Schema changes require coordination
+- Complex transactions may produce multiple events
+
+
+## Future Improvements
+
+- Add schema registry
+- Introduce message versioning
+- Add retry & dead-letter queue
+- Implement authentication for WebSocket
+- Add event filtering per user/session
+
+
+## Summary
+
+This solution enables real-time detection and propagation of database changes without modifying a legacy system.
+
+By leveraging:
+
+- MySQL binlog
+- Debezium (CDC)
+- Apache Kafka
+- Go backend service
+- WebSocket
+- SolidJS SPA
+
+we achieve a scalable, decoupled, and maintainable architecture suitable for incremental modernization.
